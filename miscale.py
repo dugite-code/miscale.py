@@ -15,12 +15,12 @@ def help():
     print( 'Requires a MAC Address at a minimum.' )
     print( '' )
     print( 'Options' )
-    print( '-l, --last-weight           [Default] Fetches the last weight measurment performed by the scale.' )
-    print( '-q, --weight-que            Checks the weight history que of the scale.' )
-    print( '-N, --noclear-weight-que    Checks the weight history que of the scale without clearing the que.' )
-    print( '-t, --check-time            Checks scale DateTime against system Local time.' )
-    print( '-u, --update-time           Checks scale DateTime against system Local time and updates if needed.' )
-    print( '-F, --force-update-time     Updates scale DateTime against system Local time.' )
+    print( '-l, --last-weight               Fetches the last weight measurment performed by the scale.' )
+    print( '-q, --weight-que                Checks the weight history que of the scale.' )
+    print( '-N, --keep-weight-que           Checks the weight history que of the scale without clearing the que.' )
+    print( '-t, --check-datetime            Checks scale DateTime against system Local DateTime.' )
+    print( '-u, --update-datetime           Checks scale DateTime against system Local DateTime and updates if needed.' )
+    print( '-F, --force-update-datetime     Updates scale DateTime against system Local DateTime.' )
 
 def run_command( command ):
         p = subprocess.Popen(command,
@@ -44,9 +44,9 @@ def format_timestamp( yearhex="00",monthhex="00",dayhex="00",hourhex="00",minute
 
     return timestamp
 
-def update_datetime( mac_address ):
+def datetime_update( mac_address ):
 
-    reset_datetime = "gatttool -b " + mac_address + " --char-write -a 0x001b -n 00000000000000000000"
+    reset_datetime = "gatttool -b " + mac_address + " --char-write-req -a 0x001b -n 00000000000000000000"
     output = run_command( reset_datetime.split() )
 
     if(output[0] != 'Characteristic value was written successfully\n'):
@@ -68,7 +68,7 @@ def update_datetime( mac_address ):
                             + "00"
                         )
 
-    set_datetime = "gatttool -b " + mac_address + " --char-write -a 0x001b -n " + current_datetime
+    set_datetime = "gatttool -b " + mac_address + " --char-write-req -a 0x001b -n " + current_datetime
     output = run_command( reset_datetime.split() )
 
     if(output[0] != 'Characteristic value was written successfully\n'):
@@ -79,7 +79,7 @@ def update_datetime( mac_address ):
 
 def check_time( mac_address):
     read_time = 'gatttool -b ' + mac_address + ' --char-read -a 0x001b'
-    output = run_command( fetch_time.split() )
+    output = run_command( read_time.split() )
     raw_time = output[0].split(':')[1].split()
 
     timestamp = format_timestamp( yearhex = raw_time[0]+raw_time[1] ,monthhex = raw_time[2],dayhex = raw_time[3],hourhex = raw_time[4],minutehex =  raw_time[5],secondhex =  raw_time[6] )
@@ -125,16 +125,16 @@ def format_weight( data ):
 
     return weight_records
 
-def weight_history( mac_address ):
+def read_weight_history( mac_address ):
 
     data = []
 
     initialize( mac_address )
 
     get_history = "timeout 30s gatttool --listen -b " + mac_address + " --char-write-req -a 0x0022 -n 02"
-    history = run_command( get_history_que.split() )
+    history = run_command( get_history.split() )
 
-    stop_cmd = "gatttool -b " + mac_address + " --char-write -a 0x0022 -n 03"
+    stop_cmd = "gatttool -b " + mac_address + " --char-write-req -a 0x0022 -n 03"
     output = run_command( stop_cmd.split() )
     if(output[0] != 'Characteristic value was written successfully\n'):
         print( 'Error sending stop command' )
@@ -142,13 +142,15 @@ def weight_history( mac_address ):
     history = history[1].split(":")[1].split()
 
     i = 0
-    while ( i < ( reading_num*10 ) ):
-        data.append( raw_data[i:i+10] )
+    while ( i < ( len( history )*10 ) ):
+        data.append( history[i:i+10] )
         i = i + 10
+
+    data = format_weight( data )
 
     return data
 
-def weight_que( mac_address,clear_que=True ):
+def read_weight_que( mac_address,keep_que ):
 
     data = []
 
@@ -169,7 +171,7 @@ def weight_que( mac_address,clear_que=True ):
         if(output[0] != 'Characteristic value was written successfully\n'):
             print( 'Error sending stop command' )
 
-        if( clear_que ):
+        if( not keep_que ):
             acc_cmd = "gatttool -b " + mac_address + " --char-write -a 0x0022 -n 04FFFFFFFF"
             output = run_command( acc_cmd.split() )
             if(output[0] != 'Characteristic value was written successfully\n'):
@@ -182,26 +184,71 @@ def weight_que( mac_address,clear_que=True ):
             data.append( raw_data[i:i+10] )
             i = i + 10
 
+        data = format_weight( data )
+
         return data
 
+    return "No records"
 
 def main(argv):
     mac_address = ''
+    last_weight = False
+    weight_que = False
+    keep_weight_que = False
+    check_datetime = False
+    update_datetime = False
+    force_update_datetime = False
+
     date_format = '%m/%d/%y'
     try:
-        opts, args = getopt.getopt(argv,'hm:',['mac_address='])
+        opts, args = getopt.getopt(argv,'hm:lqNtuF',[ 'help',
+                                                            'mac-address=',
+                                                            'last-weight',
+                                                            'weight-que',
+                                                            'keep-weight-que',
+                                                            'check-datetime',
+                                                            'update-datetime',
+                                                            'force-update-datetime'
+                                                        ])
     except getopt.GetoptError:
-        print 'test.py -m <MAC Address>'
+        help()
         sys.exit(2)
 
-    if( update_time ):
+    for opt, arg in opts:
+        if opt in ('-h', '--help'):
+            help()
+            sys.exit(0)
+        elif opt in ('-m', '--mac-address'):
+            mac_address = arg
+        elif opt in ('-l', '--last-weight'):
+            last_weight = True
+        elif opt in ('-q', '--weight-que'):
+            weight_que = True
+        elif opt in ('-N', '--keep-weight-que'):
+            keep_weight_que = True
+        elif opt in ('-t', '--check-datetime'):
+            check_datetime = True
+        elif opt in ('-u', '--update-datetime'):
+            update_datetime = True
+        elif opt in ('-F', '--force-update-datetime'):
+            force_update_datetime = True
+
+    if( not mac_address or not last_weight and not weight_que):
+        help()
+        sys.exit(2)
+
+    if( check_datetime ):
+        timestamp = check_time( mac_address )
+        print( timestamp )
+
+    if( update_datetime ):
 
         timestamp = check_time( mac_address )
 
         now = datetime.datetime.now()
 
-        if( force_update_time ):
-            update_datetime( mac_address )
+        if( force_update_datetime ):
+            datetime_update( mac_address )
         else:
                 if( now.year != timestamp.year
                     or now.month != timestamp.month
@@ -209,7 +256,20 @@ def main(argv):
                     or now.hour != timestamp.hour
                     or now.minute != timestamp.minute
                 ):
-                    update_datetime( mac_address )
+                    datetime_update( mac_address )
+
+    if( last_weight ):
+        records = read_weight_history( mac_address )
+        print( records[-1] )
+
+    if( weight_que ):
+        records = read_weight_que( mac_address,keep_weight_que )
+
+        if records != "No records":
+            for i in records:
+                print( records[i] )
+        else:
+            print records
 
 if __name__ == "__main__":
     main(sys.argv[1:])
