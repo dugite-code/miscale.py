@@ -32,7 +32,7 @@ def run_command( command ):
             output.append( line )
         return output
 
-def format_timestamp( yearhex="00",monthhex="00",dayhex="00",hourhex="00",minutehex="00",secondhex="00" ):
+def format_timestamp( yearhex="99",monthhex="01",dayhex="01",hourhex="00",minutehex="00",secondhex="00" ):
     year = str( unpack( '<h', ( yearhex ).decode('hex'))[0] )
     month = str( unpack('<h', ( monthhex + '00' ).decode('hex'))[0] )
     day = str( unpack('<h', ( dayhex + '00' ).decode('hex'))[0] )
@@ -40,7 +40,10 @@ def format_timestamp( yearhex="00",monthhex="00",dayhex="00",hourhex="00",minute
     minute = str( unpack('<h', ( minutehex + '00' ).decode('hex'))[0] )
     second = str( unpack('<h', ( secondhex + '00' ).decode('hex'))[0] )
 
-    timestamp = datetime.datetime.strptime(day+'/'+month+'/'+year+' '+hour+':'+minute+':'+second, '%d/%m/%Y %H:%M:%S')
+    try:
+        timestamp = datetime.datetime.strptime(day+'/'+month+'/'+year+' '+hour+':'+minute+':'+second, '%d/%m/%Y %H:%M:%S')
+    except:
+        timestamp = datetime.datetime.strptime('01/01/1970 12:00:00', '%d/%m/%Y %H:%M:%S')
 
     return timestamp
 
@@ -102,10 +105,12 @@ def initialize( mac_address ):
 
     return
 
-def format_weight( data ):
+def format_weight( data, date_format = '%d/%m/%Y %H:%M:%S' ):
+
+    weight_records = []
 
     for i in range(len(data)):
-        byte0 = bin(int(data[i][0].decode("hex"), 16))[2:].zfill(8)
+        byte0 = '{:b}'.format(int("0x62", 16)).zfill(8)
 
         if int( byte0[:1] ) == 1:
                 unit = 'lbs'
@@ -119,9 +124,9 @@ def format_weight( data ):
         if unit == 'kg':
                 weight = float(weight)/200
 
-        timestamp = read_timestamp(yearhex=data[i][3]+data[i][4],monthhex=data[i][5],dayhex=data[i][6],hourhex=data[i][7],minutehex=data[i][8],secondhex=data[i][9])
+        timestamp = format_timestamp(yearhex=data[i][3]+data[i][4],monthhex=data[i][5],dayhex=data[i][6],hourhex=data[i][7],minutehex=data[i][8],secondhex=data[i][9])
 
-        weight_records.append([timestamp, ( str ( weight ) )])
+        weight_records.append([timestamp.strftime(date_format), ( str ( weight ) )])
 
     return weight_records
 
@@ -139,12 +144,15 @@ def read_weight_history( mac_address ):
     if(output[0] != 'Characteristic value was written successfully\n'):
         print( 'Error sending stop command' )
 
-    history = history[1].split(":")[1].split()
+    filter=['Characteristic value was written successfully\n','Notification handle = 0x0022 value: 03 \n']
 
-    i = 0
-    while ( i < ( len( history )*10 ) ):
-        data.append( history[i:i+10] )
-        i = i + 10
+    for i in range( len( history ) ):
+        if( history[i] not in filter ):
+            dual = history[i][36:95]
+            data.append( dual[:29].split() )
+            data.append( dual[30:].split() )
+
+    data = [x for x in data if x]
 
     data = format_weight( data )
 
@@ -177,12 +185,10 @@ def read_weight_que( mac_address,keep_que ):
             if(output[0] != 'Characteristic value was written successfully\n'):
                 print( 'Error sending acknowledgment' )
 
-        raw_data = weight_list[1].split(":")[1].split()
-
-        i = 0
-        while ( i < ( reading_num*10 ) ):
-            data.append( raw_data[i:i+10] )
-            i = i + 10
+        for i in range( len( weight_list ) ):
+            dual = weight_list[i][36:95]
+            data.append( dual[:29].split() )
+            data.append( dual[30:].split() )
 
         data = format_weight( data )
 
@@ -199,7 +205,7 @@ def main(argv):
     update_datetime = False
     force_update_datetime = False
 
-    date_format = '%m/%d/%y'
+    date_format = '%d/%m/%Y %H:%M:%S'
     try:
         opts, args = getopt.getopt(argv,'hm:lqNtuF',[ 'help',
                                                             'mac-address=',
@@ -259,14 +265,15 @@ def main(argv):
                     datetime_update( mac_address )
 
     if( last_weight ):
-        records = read_weight_history( mac_address )
-        print( records[-1] )
+        records = read_weight_history( mac_address )[-1]
+        for i in range( len( records ) ):
+            print( records[i] )
 
     if( weight_que ):
         records = read_weight_que( mac_address,keep_weight_que )
 
         if records != "No records":
-            for i in records:
+            for i in range( len( records ) ):
                 print( records[i] )
         else:
             print records
