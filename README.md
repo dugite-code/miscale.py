@@ -1,9 +1,10 @@
 # miscale.py
 python utility for interacting with a Xiaomi Mi Scale
 
-!Requirements
+## Requirements
+gatttool
 
-!Basic usage
+# Basic usage
 From command line:
 `miscale.py -m <MAC Address> [OPTION]`
 
