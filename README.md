@@ -12,9 +12,9 @@ Requires at least one option with a mac address
 ```
 Options
 -l, --last-weight                       Fetches the last weight measurment performed by the scale.
--q, --weight-queue                        Checks the weight history queue of the scale.
--N, --keep-weight-queue                   Checks the weight history queue of the scale without clearing the queue.
-    >> -t, --check-datetime             Sub-option: Checks scale DateTime against system Local DateTime.
+-q, --weight-queue                      Checks the weight history queue of the scale.
+    >> -N, --keep-weight-queue          Sub-option: Checks the weight history queue of the scale without clearing the queue.
+-t, --check-datetime                    Checks scale DateTime against system Local DateTime.
 -u, --update-datetime                   Checks scale DateTime against system Local DateTime and updates if needed.
     >> -F, --force-update-datetime      Sub-option: Updates scale DateTime against system Local DateTime.
 ```
