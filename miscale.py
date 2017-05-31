@@ -17,9 +17,9 @@ def help():
     print( '' )
     print( 'Options' )
     print( '-l, --last-weight                       Fetches the last weight measurment performed by the scale.' )
-    print( '-q, --weight-queue                        Checks the weight history queue of the scale.' )
-    print( '-N, --keep-weight-queue                   Checks the weight history queue of the scale without clearing the queue.' )
-    print( '    >> -t, --check-datetime             Sub-option: Checks scale DateTime against system Local DateTime.' )
+    print( '-q, --weight-queue                      Checks the weight history queue of the scale.' )
+    print( '    >> -N, --keep-weight-queue          Sub-option: Checks the weight history queue of the scale without clearing the queue.' )
+    print( '-t, --check-datetime                    Checks scale DateTime against system Local DateTime.' )
     print( '-u, --update-datetime                   Checks scale DateTime against system Local DateTime and updates if needed.' )
     print( '    >> -F, --force-update-datetime      Sub-option: Updates scale DateTime against system Local DateTime.' )
 
