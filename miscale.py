@@ -13,15 +13,15 @@ except:
 
 def help():
     print( 'Usage: miscale.py -m <MAC Address> [OPTION]' )
-    print( 'Requires a MAC Address at a minimum.' )
+    print( 'Requires a MAC Address and at lease one option' )
     print( '' )
     print( 'Options' )
-    print( '-l, --last-weight               Fetches the last weight measurment performed by the scale.' )
-    print( '-q, --weight-que                Checks the weight history que of the scale.' )
-    print( '-N, --keep-weight-que           Checks the weight history que of the scale without clearing the que.' )
-    print( '-t, --check-datetime            Checks scale DateTime against system Local DateTime.' )
-    print( '-u, --update-datetime           Checks scale DateTime against system Local DateTime and updates if needed.' )
-    print( '-F, --force-update-datetime     Updates scale DateTime against system Local DateTime.' )
+    print( '-l, --last-weight                       Fetches the last weight measurment performed by the scale.' )
+    print( '-q, --weight-queue                        Checks the weight history queue of the scale.' )
+    print( '-N, --keep-weight-queue                   Checks the weight history queue of the scale without clearing the queue.' )
+    print( '    >> -t, --check-datetime             Sub-option: Checks scale DateTime against system Local DateTime.' )
+    print( '-u, --update-datetime                   Checks scale DateTime against system Local DateTime and updates if needed.' )
+    print( '    >> -F, --force-update-datetime      Sub-option: Updates scale DateTime against system Local DateTime.' )
 
 def run_command( command,stop='Null',filter='Null' ):
         p = subprocess.Popen(command,
@@ -131,7 +131,7 @@ def format_weight( data, date_format = '%d/%m/%Y %H:%M:%S' ):
 
         timestamp = format_timestamp(yearhex=data[i][3]+data[i][4],monthhex=data[i][5],dayhex=data[i][6],hourhex=data[i][7],minutehex=data[i][8],secondhex=data[i][9])
 
-        weight_records.append([timestamp.strftime(date_format), ( str ( weight ) )])
+        weight_records.append([timestamp.strftime(date_format), ( str ( weight ) ), unit])
 
     return weight_records
 
@@ -162,14 +162,14 @@ def read_weight_history( mac_address ):
 
     return data
 
-def read_weight_que( mac_address,keep_que ):
+def read_weight_queue( mac_address,keep_queue ):
 
-    get_history_que = "timeout 30s gatttool --listen -b " + mac_address + " --char-write-req -a 0x0022 -n 01FFFFFFFF"
-    history_que = run_command( get_history_que.split() )
-    reading_num = int(history_que[1][39:-17], 16)
+    get_history_queue = "timeout 30s gatttool --listen -b " + mac_address + " --char-write-req -a 0x0022 -n 01FFFFFFFF"
+    history_queue = run_command( get_history_queue.split() )
+    reading_num = int(history_queue[1][39:-17], 16)
 
     if( reading_num > 0 ):
-        print( str( reading_num ) + " Unread measurments" )
+        print( str( reading_num ) + " Unread measurements" )
 
         get_weight_list = "gatttool --listen -b " + mac_address + " --char-write-req -a 0x0022 -n 02"
         history = run_command( get_weight_list.split(),'Notification handle = 0x0022 value: 03 \n','Characteristic value was written successfully\n' )
@@ -179,7 +179,7 @@ def read_weight_que( mac_address,keep_que ):
         if( 'Characteristic value was written successfully' not in output[0] ):
             print( 'Error sending stop command' )
 
-        if( not keep_que ):
+        if( not keep_queue ):
             acc_cmd = "gatttool -b " + mac_address + " --char-write-req -a 0x0022 -n 04FFFFFFFF"
             output = run_command( acc_cmd.split() )
             if( 'Characteristic value was written successfully' not in output[0] ):
@@ -194,8 +194,8 @@ def read_weight_que( mac_address,keep_que ):
 def main(argv):
     mac_address = ''
     last_weight = False
-    weight_que = False
-    keep_weight_que = False
+    weight_queue = False
+    keep_weight_queue = False
     check_datetime = False
     update_datetime = False
     force_update_datetime = False
@@ -205,8 +205,8 @@ def main(argv):
         opts, args = getopt.getopt(argv,'hm:lqNtuF',[ 'help',
                                                             'mac-address=',
                                                             'last-weight',
-                                                            'weight-que',
-                                                            'keep-weight-que',
+                                                            'weight-queue',
+                                                            'keep-weight-queue',
                                                             'check-datetime',
                                                             'update-datetime',
                                                             'force-update-datetime'
@@ -223,10 +223,10 @@ def main(argv):
             mac_address = arg
         elif opt in ('-l', '--last-weight'):
             last_weight = True
-        elif opt in ('-q', '--weight-que'):
-            weight_que = True
-        elif opt in ('-N', '--keep-weight-que'):
-            keep_weight_que = True
+        elif opt in ('-q', '--weight-queue'):
+            weight_queue = True
+        elif opt in ('-N', '--keep-weight-queue'):
+            keep_weight_queue = True
         elif opt in ('-t', '--check-datetime'):
             check_datetime = True
         elif opt in ('-u', '--update-datetime'):
@@ -238,7 +238,7 @@ def main(argv):
         timestamp = check_time( mac_address )
         print( "Current DateTime: " + timestamp.strftime(date_format) )
 
-    elif( update_datetime ):
+    if( update_datetime ):
 
         timestamp = check_time( mac_address )
 
@@ -266,31 +266,28 @@ def main(argv):
                     new_timestamp = check_time( mac_address )
                     print( "DateTime updated from: " + timestamp.strftime(date_format) + " to: " + new_timestamp.strftime(date_format))
 
-    elif( last_weight ):
+    if( last_weight ):
         initialize( mac_address )
 
         data = read_weight_history( mac_address )[-1]
 
-        records = format_weight( data )
+        records = format_weight( [ data ] )
 
         for i in range( len( records ) ):
-            print( records[i][0] + records[i][1] )
+            print( records[i][0] + " " + records[i][1] + " " + records[i][2] )
 
-    elif( weight_que ):
+    elif( weight_queue ):
         initialize( mac_address )
 
-        data = read_weight_que( mac_address,keep_weight_que )
+        data = read_weight_queue( mac_address,keep_weight_queue )
 
         records = format_weight( data )
 
         if records != "No records":
             for i in range( len( records ) ):
-                print( records[i][0] + records[i][1])
+                print( records[i][0] + " " + records[i][1] + " " + records[i][2] )
         else:
             print records
-    else:
-        help()
-        sys.exit(2)
 
 if __name__ == "__main__":
     main(sys.argv[1:])
