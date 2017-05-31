@@ -1,5 +1,6 @@
 #!/usr/bin/python
 try:
+    import time
     import sys
     import getopt
     import subprocess
@@ -22,14 +23,18 @@ def help():
     print( '-u, --update-datetime           Checks scale DateTime against system Local DateTime and updates if needed.' )
     print( '-F, --force-update-datetime     Updates scale DateTime against system Local DateTime.' )
 
-def run_command( command ):
+def run_command( command,stop='Null',filter='Null' ):
         p = subprocess.Popen(command,
                                     stdout=subprocess.PIPE,
                                     stderr=subprocess.PIPE)
 
         output=[]
         for line in iter(p.stdout.readline, b''):
-            output.append( line )
+            if( stop in line ):
+                p.kill()
+                break
+            if( filter not in line ):
+                output.append( line )
         return output
 
 def format_timestamp( yearhex="99",monthhex="01",dayhex="01",hourhex="00",minutehex="00",secondhex="00" ):
@@ -52,7 +57,7 @@ def datetime_update( mac_address ):
     reset_datetime = "gatttool -b " + mac_address + " --char-write-req -a 0x001b -n 00000000000000000000"
     output = run_command( reset_datetime.split() )
 
-    if(output[0] != 'Characteristic value was written successfully\n'):
+    if( 'Characteristic value was written successfully' not in output[0] ):
         print( 'Error re-setting DateTime' )
         sys.exit(1)
 
@@ -72,9 +77,9 @@ def datetime_update( mac_address ):
                         )
 
     set_datetime = "gatttool -b " + mac_address + " --char-write-req -a 0x001b -n " + current_datetime
-    output = run_command( reset_datetime.split() )
+    output = run_command( set_datetime.split() )
 
-    if(output[0] != 'Characteristic value was written successfully\n'):
+    if( 'Characteristic value was written successfully' not in output[0] ):
         print( 'Error updating DateTime' )
         sys.exit(1)
 
@@ -93,13 +98,13 @@ def initialize( mac_address ):
 
     weight_history_enable = "gatttool -b " + mac_address + " --char-write-req -a 0x0022 -n 01968abd62"
     output = run_command( weight_history_enable.split() )
-    if(output[0] != 'Characteristic value was written successfully\n'):
+    if( 'Characteristic value was written successfully' not in output[0] ):
         print( 'Error enabling weight History' )
         sys.exit(1)
 
     set_notif = "gatttool -b " + mac_address + " --char-write-req -a 0x0023 -n 0100"
     output = run_command( set_notif.split() )
-    if(output[0] != 'Characteristic value was written successfully\n'):
+    if( 'Characteristic value was written successfully' not in output[0] ):
         print( 'Error enabling notifications' )
         sys.exit(1)
 
@@ -130,39 +135,34 @@ def format_weight( data, date_format = '%d/%m/%Y %H:%M:%S' ):
 
     return weight_records
 
-def read_weight_history( mac_address ):
+def history_clean( history ):
 
     data = []
 
-    initialize( mac_address )
-
-    get_history = "timeout 30s gatttool --listen -b " + mac_address + " --char-write-req -a 0x0022 -n 02"
-    history = run_command( get_history.split() )
-
-    stop_cmd = "gatttool -b " + mac_address + " --char-write-req -a 0x0022 -n 03"
-    output = run_command( stop_cmd.split() )
-    if(output[0] != 'Characteristic value was written successfully\n'):
-        print( 'Error sending stop command' )
-
-    filter=['Characteristic value was written successfully\n','Notification handle = 0x0022 value: 03 \n']
-
     for i in range( len( history ) ):
-        if( history[i] not in filter ):
-            dual = history[i][36:95]
-            data.append( dual[:29].split() )
-            data.append( dual[30:].split() )
+        dual = history[i][36:95]
+        data.append( dual[:29].split() )
+        data.append( dual[30:].split() )
 
     data = [x for x in data if x]
 
-    data = format_weight( data )
+    return data
+
+def read_weight_history( mac_address ):
+
+    get_history = "gatttool --listen -b " + mac_address + " --char-write-req -a 0x0022 -n 02"
+    history = run_command( get_history.split(),'Notification handle = 0x0022 value: 03 \n','Characteristic value was written successfully\n' )
+
+    stop_cmd = "gatttool -b " + mac_address + " --char-write-req -a 0x0022 -n 03"
+    output = run_command( stop_cmd.split() )
+    if( 'Characteristic value was written successfully' not in output[0] ):
+        print( 'Error sending stop command' )
+
+    data = history_clean( history )
 
     return data
 
 def read_weight_que( mac_address,keep_que ):
-
-    data = []
-
-    initialize( mac_address )
 
     get_history_que = "timeout 30s gatttool --listen -b " + mac_address + " --char-write-req -a 0x0022 -n 01FFFFFFFF"
     history_que = run_command( get_history_que.split() )
@@ -171,26 +171,21 @@ def read_weight_que( mac_address,keep_que ):
     if( reading_num > 0 ):
         print( str( reading_num ) + " Unread measurments" )
 
-        get_weight_list = "timeout 30s gatttool --listen -b " + mac_address + " --char-write-req -a 0x0022 -n 02"
-        weight_list = run_command( get_weight_list.split() )
+        get_weight_list = "gatttool --listen -b " + mac_address + " --char-write-req -a 0x0022 -n 02"
+        history = run_command( get_weight_list.split(),'Notification handle = 0x0022 value: 03 \n','Characteristic value was written successfully\n' )
 
-        stop_cmd = "gatttool -b " + mac_address + " --char-write -a 0x0022 -n 03"
+        stop_cmd = "gatttool -b " + mac_address + " --char-write-req -a 0x0022 -n 03"
         output = run_command( stop_cmd.split() )
-        if(output[0] != 'Characteristic value was written successfully\n'):
+        if( 'Characteristic value was written successfully' not in output[0] ):
             print( 'Error sending stop command' )
 
         if( not keep_que ):
-            acc_cmd = "gatttool -b " + mac_address + " --char-write -a 0x0022 -n 04FFFFFFFF"
+            acc_cmd = "gatttool -b " + mac_address + " --char-write-req -a 0x0022 -n 04FFFFFFFF"
             output = run_command( acc_cmd.split() )
-            if(output[0] != 'Characteristic value was written successfully\n'):
+            if( 'Characteristic value was written successfully' not in output[0] ):
                 print( 'Error sending acknowledgment' )
 
-        for i in range( len( weight_list ) ):
-            dual = weight_list[i][36:95]
-            data.append( dual[:29].split() )
-            data.append( dual[30:].split() )
-
-        data = format_weight( data )
+        data = history_clean( history )
 
         return data
 
@@ -239,15 +234,11 @@ def main(argv):
         elif opt in ('-F', '--force-update-datetime'):
             force_update_datetime = True
 
-    if( not mac_address or not last_weight and not weight_que):
-        help()
-        sys.exit(2)
-
     if( check_datetime ):
         timestamp = check_time( mac_address )
-        print( timestamp )
+        print( "Current DateTime: " + timestamp.strftime(date_format) )
 
-    if( update_datetime ):
+    elif( update_datetime ):
 
         timestamp = check_time( mac_address )
 
@@ -255,6 +246,11 @@ def main(argv):
 
         if( force_update_datetime ):
             datetime_update( mac_address )
+
+            time.sleep(5)
+
+            new_timestamp = check_time( mac_address )
+            print( "DateTime updated from: " + timestamp.strftime(date_format) + " to: " + new_timestamp.strftime(date_format))
         else:
                 if( now.year != timestamp.year
                     or now.month != timestamp.month
@@ -262,21 +258,39 @@ def main(argv):
                     or now.hour != timestamp.hour
                     or now.minute != timestamp.minute
                 ):
+                    print( "Updating DateTime" )
                     datetime_update( mac_address )
 
-    if( last_weight ):
-        records = read_weight_history( mac_address )[-1]
-        for i in range( len( records ) ):
-            print( records[i] )
+                    time.sleep(5)
 
-    if( weight_que ):
-        records = read_weight_que( mac_address,keep_weight_que )
+                    new_timestamp = check_time( mac_address )
+                    print( "DateTime updated from: " + timestamp.strftime(date_format) + " to: " + new_timestamp.strftime(date_format))
+
+    elif( last_weight ):
+        initialize( mac_address )
+
+        data = read_weight_history( mac_address )[-1]
+
+        records = format_weight( data )
+
+        for i in range( len( records ) ):
+            print( records[i][0] + records[i][1] )
+
+    elif( weight_que ):
+        initialize( mac_address )
+
+        data = read_weight_que( mac_address,keep_weight_que )
+
+        records = format_weight( data )
 
         if records != "No records":
             for i in range( len( records ) ):
-                print( records[i] )
+                print( records[i][0] + records[i][1])
         else:
             print records
+    else:
+        help()
+        sys.exit(2)
 
 if __name__ == "__main__":
     main(sys.argv[1:])
