@@ -1,5 +1,5 @@
 # miscale.py
-python utility for interacting with a Xiaomi Mi Scale
+python wrapper for gatttool interaction with a Xiaomi Mi Scale (Version 1)
 
 ## Requirements
 gatttool
