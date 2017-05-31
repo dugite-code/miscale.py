@@ -69,10 +69,10 @@ miscale.datetime_update( mac_address )
 miscale.initialize( mac_address )
 
 # Read the weight queue
-data = miscale.read_weight_queue( mac_address,keep_weight_queue )
+data = miscale.read_weight_queue( mac_address,keep_queue )
 
 # Decode the hex date into usable data
-records = miscale,format_weight( data )
+records = miscale.format_weight( data )
 
 if records != "No records":
   for i in range( len( records ) ):
