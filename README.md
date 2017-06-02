@@ -54,7 +54,10 @@ $: miscale.py -m XX:XX:XX:XX:XX:XX -q -N -u
 * format_weight( list_of_lists_hex_data( Required ), datetime_format( Optional: %d/%m/%Y %H:%M:%S ) )
   * Returns: List of lists `[ [ timestamp( str ), Weight( str ), Unit( str ) ] ]`
 * read_weight_history( mac_address( Required ) )
+  * Returns: List of lists (hex values) `[ ['40', '00', '00', 'b2', '08', '01', '01', '00', '00', '00'], ['62', 'b8', '3d', '00', '00', '00', '00', '00', '00', '00'] ]`
 * read_weight_queue( mac_address( Required ), keep_weight_queue_flag( Optional: True/False ) )
+  * if queue empty Returns: 'No records'
+  * Returns: List of lists (hex values) `[ ['62', 'b8', '3d', '00', '00', '00', '00', '00', '00', '00'] ]`
 
 ### Example:
 ```
