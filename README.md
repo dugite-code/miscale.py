@@ -1,6 +1,8 @@
 # miscale.py
 python wrapper for gatttool interaction with a Xiaomi Mi Scale (Version 1)
 
+BLE reverse engineering from [openScale](https://github.com/oliexdev/openScale/wiki/Xiaomi-Bluetooth-Mi-Scale)
+
 ## Requirements
 gatttool
 
