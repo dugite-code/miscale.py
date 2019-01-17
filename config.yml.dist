@@ -1,0 +1,13 @@
+MiScale Settings:
+  Mac Address:
+  Date Format:
+
+Logging Settings:
+  # Master Logging switch
+  Enabled: True
+  # CRITICAL, ERROR, WARNING, INFO, DEBUG
+  Level: DEBUG
+  Log to Console: True
+  Log to File: True
+  Logfile: miscale.log
+  
