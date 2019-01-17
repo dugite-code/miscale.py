@@ -10,3 +10,4 @@ Logging Settings:
   Log to Console: True
   Log to File: True
   Logfile: miscale.log
+  
