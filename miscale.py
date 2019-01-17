@@ -28,13 +28,17 @@ def run_command( command,stop=b'Null',filter=b'Null' ):
 									stderr=subprocess.PIPE)
 
 		output=[]
+		# Itterate through gattool stdout
 		for line in iter(p.stdout.readline, b''):
-			sys.stdout.flush()
+			logger.debug( str( line ) )
+			# Kill Process if stop line found
 			if( stop in line ):
 				p.kill()
 				break
+			# Filter out useless lines
 			if( filter not in line ):
 				output.append( line )
+		p.kill()
 		return output
 
 def format_timestamp( yearhex="99",monthhex="01",dayhex="01",hourhex="00",minutehex="00",secondhex="00" ):
@@ -57,7 +61,7 @@ def datetime_update( mac_address ):
 	reset_datetime = "gatttool -b " + mac_address + " --char-write-req -a 0x001b -n 00000000000000000000"
 	output = run_command( reset_datetime.split() )
 
-	if( b'Characteristic value was written successfully' not in output[0] ):
+	if( b'Characteristic value was written successfully\n' not in output ):
 		logger.warning( 'Error re-setting DateTime' )
 		sys.exit(1)
 
@@ -65,7 +69,7 @@ def datetime_update( mac_address ):
 
 	hex_year = codecs.encode( pack('<h', now.year), 'hex' )
 	current_datetime = (
-							hex_year[:2] + hex_year[2:]
+							hex_year[:2] + hex_year[2:] # Flip year to little endian format
 							+ codecs.encode( pack('<h', now.month), 'hex' )[:2]
 							+ codecs.encode( pack('<h', now.day), 'hex' )[:2]
 							+ codecs.encode( pack('<h', now.hour), 'hex' )[:2]
@@ -76,10 +80,10 @@ def datetime_update( mac_address ):
 							+ b'00'
 						)
 
-	set_datetime = "gatttool -b " + mac_address + " --char-write-req -a 0x001b -n " + str( current_datetime )
+	set_datetime = "gatttool -b " + mac_address + " --char-write-req -a 0x001b -n " +  current_datetime.decode()
 	output = run_command( set_datetime.split() )
 
-	if( b'Characteristic value was written successfully' not in output[0] ):
+	if( b'Characteristic value was written successfully\n' not in output ):
 		logger.warning( 'Error updating DateTime' )
 		sys.exit(1)
 
@@ -98,13 +102,14 @@ def initialize( mac_address ):
 
 	weight_history_enable = "gatttool -b " + mac_address + " --char-write-req -a 0x0022 -n 01968abd62"
 	output = run_command( weight_history_enable.split() )
-	if( b'Characteristic value was written successfully' not in output[0] ):
+	if( b'Characteristic value was written successfully\n' not in output ):
 		logger.warning( 'Error enabling weight History' )
 		sys.exit(1)
 
 	set_notif = "gatttool -b " + mac_address + " --char-write-req -a 0x0023 -n 0100"
 	output = run_command( set_notif.split() )
-	if( b'Characteristic value was written successfully' not in output[0] ):
+
+	if( b'Characteristic value was written successfully\n' not in output ):
 		logger.warning( 'Error enabling notifications' )
 		sys.exit(1)
 
@@ -155,7 +160,7 @@ def read_weight_history( mac_address ):
 
 	stop_cmd = "gatttool -b " + mac_address + " --char-write-req -a 0x0022 -n 03"
 	output = run_command( stop_cmd.split() )
-	if( b'Characteristic value was written successfully' not in output[0] ):
+	if( b'Characteristic value was written successfully\n' not in output ):
 		logger.warning( 'Error sending stop command' )
 
 	data = history_clean( history )
@@ -176,13 +181,13 @@ def read_weight_queue( mac_address,keep_queue ):
 
 		stop_cmd = "gatttool -b " + mac_address + " --char-write-req -a 0x0022 -n 03"
 		output = run_command( stop_cmd.split() )
-		if( b'Characteristic value was written successfully' not in output[0] ):
+		if( b'Characteristic value was written successfully\n' not in output ):
 			logger.warning( 'Error sending stop command' )
 
 		if( not keep_queue ):
 			acc_cmd = "gatttool -b " + mac_address + " --char-write-req -a 0x0022 -n 04FFFFFFFF"
 			output = run_command( acc_cmd.split() )
-			if( b'Characteristic value was written successfully' not in output[0] ):
+			if( b'Characteristic value was written successfully\n' not in output ):
 				logger.warning( 'Error sending acknowledgment' )
 
 		data = history_clean( history )
@@ -302,12 +307,14 @@ if __name__ == '__main__':
 	if args.mac_address:
 		config['MiScale Settings']['Mac Address'] = args.mac_address
 
+	# Ensure MAC address is supplied
 	try:
 		config['MiScale Settings']['Mac Address']
 	except:
 		parser.print_help(sys.stderr)
 		sys.exit(1)
 
+	# Ensure an option is selected
 	if not args.last_weight and not args.weight_queue and not args.check_datetime and not args.update_datetime:
 		parser.print_help(sys.stderr)
 		sys.exit(1)
