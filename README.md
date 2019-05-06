@@ -46,9 +46,7 @@ $: miscale.py -m XX:XX:XX:XX:XX:XX -q -N -u
 02/01/2017 06:12:25 75.1 kg
 ```
 
-# ~~Use as a Library~~
-
-Currently broken due to the addition of logging see: https://github.com/dugite-code/miscale.py/issues/11
+# Use as a Library
 
 ### Functions:
 * datetime_update( mac_address( Required ) )
