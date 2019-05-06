@@ -22,6 +22,8 @@ except:
 	print( 'Import error, check requirements.txt' )
 	sys.exit(1)
 
+logger = logging.getLogger( )
+
 def run_command( command,stop=b'Null',filter=b'Null' ):
 		p = subprocess.Popen(command,
 									stdout=subprocess.PIPE,
@@ -320,8 +322,6 @@ if __name__ == '__main__':
 		sys.exit(1)
 
 	# Set up Logging
-	logger = logging.getLogger( __name__ )
-
 	log_file = os.path.join( root, config['Logging Settings']['Logfile'] )
 
 	# Set Log Level
