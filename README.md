@@ -6,6 +6,25 @@ BLE reverse engineering from [openScale](https://github.com/oliexdev/openScale/w
 ## Requirements
 gatttool
 
+### Gatttool Notes:
+
+To grant non-root access to BLE, assuming you are using a user named `miscale` on debian/ubuntu:
+
+edit `/etc/dbus-1/system.d/bluetooth.conf`
+
+```
+  <policy user="miscale">
+    <allow own="org.bluez"/>
+    <allow send_destination="org.bluez"/>
+    <allow send_interface="org.bluez.GattCharacteristic1"/>
+    <allow send_interface="org.bluez.GattDescriptor1"/>
+    <allow send_interface="org.freedesktop.DBus.ObjectManager"/>
+    <allow send_interface="org.freedesktop.DBus.Properties"/>
+  </policy>
+```
+
+Then restart the dbus `systemctl restart dbus`
+
 # Basic usage
 From command line:
 `miscale.py -m <MAC Address> [OPTION]`
